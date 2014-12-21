@@ -1,0 +1,131 @@
+commit 1e17e28addc7cca0ee8af2db4429e29684aefc06
+Author: CODeRUS <coderusinbox@gmail.com>
+Date:   Sun Dec 21 18:00:11 2014 +0500
+
+    Simple lockscreen player controls
+
+diff --git a/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml b/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
+index f34b51b..900f7cf 100644
+--- a/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
++++ b/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
+@@ -248,7 +248,120 @@ MouseArea {
+         }
+     }
+ 
++    Item {
++        id: musicControl
++        anchors.bottom: ongoingCall.enabled ? ongoingCall.top : clock.top
++        width: parent.width
++        height: Theme.itemSizeLarge
++        property variant mprisControl
++        property variant mprisConfig
++        property string mprisService: "org.mpris.MediaPlayer2.jolla-mediaplayer"
++        enabled: lockscreenVisible
++        onEnabledChanged: {
++            if (!enabled) {
++                mediaName.setDefaultMarqueeOffset()
++            }
++        }
++
++        Component.onCompleted: {
++            mprisConfig = Qt.createQmlObject('import QtQuick 2.0; import org.nemomobile.configuration 1.0; ConfigurationValue {key: "/desktop/lipstick-jolla-home/mprisService"; defaultValue: musicControl.mprisService}', musicControl)
++            mprisService = mprisConfig.value
++            mprisControl = Qt.createQmlObject('import QtQuick 2.0; import org.coderus.mpris 2.0 as Mpris2; Mpris2.Control {service: musicControl.mprisService}', musicControl)
++        }
++
++        Column {
++            id: column
++            anchors {
++                left: parent.left
++                right: parent.right
++                margins: Theme.paddingLarge
++            }
++
++            Item {
++                id: marqueeItem
++                height: mediaName.height
++                width: parent.width
++                clip: true
++
++                Label {
++                    id: mediaName
++                    property bool shouldMarquee: false
++                    property int marqueeOffset: 0
++                    text: musicControl.mprisControl.metadata["xesam:title"] ? (musicControl.mprisControl.metadata["xesam:artist"] + " - " + musicControl.mprisControl.metadata["xesam:title"]) : ""
++                    onTextChanged: setDefaultMarqueeOffset()
++                    x: mediaName.marqueeOffset
++                    function setDefaultMarqueeOffset() {
++                        marqueeOffset = shouldMarquee ? 0 : ((marqueeItem.width - width) / 2)
++                        shouldMarquee = width > marqueeItem.width
++                    }
++                }
++
++                Timer {
++                    id: marqueeTimer
++                    interval: 1000
++                    running: lockscreenVisible && mediaName.shouldMarquee
++                    repeat: true
++                    property int offset: -1
++                    onTriggered: {
++                        if (mediaName.width + mediaName.marqueeOffset > marqueeItem.width) {
++                            mediaName.marqueeOffset += marqueeTimer.offset
++                            interval = 10
++                        }
++                        else {
++                            mediaName.marqueeOffset = 0
++                            interval = 1000
++                        }
++                    }
++                }
++            }
++
++            Row {
++                height: Theme.itemSizeMedium
++                Item {
++                    width: column.width / 3
++                    height: parent.height
++
++                    IconButton {
++                        icon.source: "image://theme/icon-m-previous"
++                        anchors.centerIn: parent
++                        enabled: musicControl.mprisControl.canGoPrevious
++                        onClicked: {
++                            musicControl.mprisControl.previous()
++                        }
++                    }
++                }
++                Item {
++                    width: column.width / 3
++                    height: parent.height
++
++                    IconButton {
++                        icon.source: musicControl.mprisControl.playbackStatus == "Playing" ? "image://theme/icon-m-pause" : "image://theme/icon-m-play"
++                        anchors.centerIn: parent
++                        enabled: musicControl.mprisControl.playbackStatus == "Playing" ? musicControl.mprisControl.canPause : musicControl.mprisControl.canPlay
++                        onClicked: {
++                            musicControl.mprisControl.playPause()
++                        }
++                    }
++                }
++                Item {
++                    width: column.width / 3
++                    height: parent.height
++
++                    IconButton {
++                        icon.source: "image://theme/icon-m-next"
++                        anchors.centerIn: parent
++                        enabled: musicControl.mprisControl.canGoNext
++                        onClicked: {
++                            musicControl.mprisControl.next()
++                        }
++                    }
++                }
++            }
++        }
++    }
++
+     OngoingCall {
++        id: ongoingCall
+         anchors.bottom: clock.top
+     }
+ 
