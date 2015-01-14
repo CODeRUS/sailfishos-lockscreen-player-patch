@@ -1,14 +1,14 @@
-commit 1e17e28addc7cca0ee8af2db4429e29684aefc06
+commit 7925e5ea7263b4296ba164fae7d646470079be30
 Author: CODeRUS <coderusinbox@gmail.com>
-Date:   Sun Dec 21 18:00:11 2014 +0500
+Date:   Mon Dec 22 00:44:52 2014 +0500
 
-    Simple lockscreen player controls
+    Lockscreen music player controls
 
 diff --git a/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml b/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
-index f34b51b..900f7cf 100644
+index f34b51b..2721e2a 100644
 --- a/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
 +++ b/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
-@@ -248,7 +248,120 @@ MouseArea {
+@@ -248,7 +248,131 @@ MouseArea {
          }
      }
  
@@ -17,11 +17,21 @@ index f34b51b..900f7cf 100644
 +        anchors.bottom: ongoingCall.enabled ? ongoingCall.top : clock.top
 +        width: parent.width
 +        height: Theme.itemSizeLarge
-+        property variant mprisControl
-+        property variant mprisConfig
++        property var mprisControl
++        property var mprisConfig
 +        property string mprisService: "org.mpris.MediaPlayer2.jolla-mediaplayer"
++        property bool displayActive: true
++        onDisplayActiveChanged: {
++            if (mprisControl) {
++                mprisControl.active = enabled && displayActive
++            }
++        }
 +        enabled: lockscreenVisible
++        visible: mprisControl ? mprisControl.active : false
 +        onEnabledChanged: {
++            if (mprisControl) {
++                mprisControl.active = enabled && displayActive
++            }
 +            if (!enabled) {
 +                mediaName.setDefaultMarqueeOffset()
 +            }
@@ -30,6 +40,7 @@ index f34b51b..900f7cf 100644
 +        Component.onCompleted: {
 +            mprisConfig = Qt.createQmlObject('import QtQuick 2.0; import org.nemomobile.configuration 1.0; ConfigurationValue {key: "/desktop/lipstick-jolla-home/mprisService"; defaultValue: musicControl.mprisService}', musicControl)
 +            mprisService = mprisConfig.value
++            mprisConfig.valueChanged.connect(function() { mprisService = mprisConfig.value; })
 +            mprisControl = Qt.createQmlObject('import QtQuick 2.0; import org.coderus.mpris 2.0 as Mpris2; Mpris2.Control {service: musicControl.mprisService}', musicControl)
 +        }
 +
@@ -129,3 +140,14 @@ index f34b51b..900f7cf 100644
          anchors.bottom: clock.top
      }
  
+@@ -263,8 +387,9 @@ MouseArea {
+                 dashboard.cancelFlick()
+                 dashboard.snapToPage(0, true)
+             }
++            musicControl.displayActive = false
+         }
+-
++        onDisplayOn: musicControl.displayActive = true
+         onDisplayAboutToBeOn: {
+             lockScreen.state = "showDateImmediately"
+             sneakPeekHint.sneakPeekActive = lipstickSettings.lowPowerMode

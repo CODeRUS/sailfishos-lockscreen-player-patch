@@ -1,0 +1,16 @@
+{
+    "translation_catalog": "sailfishos-lockscreen-player-patch",
+    "entries": [
+        {
+            "path": "system_settings/look_and_feel/sailfishos-lockscreen-player-patch",
+            "type": "page",
+            "title": "Lockscreen music controls settings",
+            "translation_id": "sailfishos-lockscreen-player-patch-title",
+            "icon": "/usr/share/patchmanager/icons/icon-m-patchmanager.png",
+            "order": 5000,
+            "params": {
+                "source": "/usr/share/jolla-settings/pages/sailfishos-lockscreen-player-patch/main.qml"
+            }
+        }
+    ]
+}
