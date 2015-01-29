@@ -1,14 +1,44 @@
-commit 7925e5ea7263b4296ba164fae7d646470079be30
+commit 3fbce5152183d9ba8574ede1d8344d570cfdcb69
 Author: CODeRUS <coderusinbox@gmail.com>
-Date:   Mon Dec 22 00:44:52 2014 +0500
+Date:   Thu Jan 29 07:22:04 2015 +0500
 
-    Lockscreen music player controls
+    v0.0.7
 
 diff --git a/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml b/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
-index f34b51b..2721e2a 100644
+index f34b51b..47b2535 100644
 --- a/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
 +++ b/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
-@@ -248,7 +248,131 @@ MouseArea {
+@@ -34,6 +34,29 @@ MouseArea {
+ 
+     property Item accessNotificationsHint
+ 
++    property int currentX: 0
++
++    onPositionChanged: {
++        if (pressed && musicControl.mprisConfig.useGestures && musicControl.visible) {
++            currentX = mouse.x - startX
++            var preX = currentX / 4
++            if ((preX < 0 && musicControl.mprisControl.canGoNext) || (preX > 0 && musicControl.mprisControl.canGoPrevious))
++                x = preX
++        }
++    }
++
++    onClicked: {
++        if (leftActionIcon.accepted) {
++            musicControl.mprisControl.next()
++        }
++        else if (rightActionIcon.accepted) {
++            musicControl.mprisControl.previous()
++        }
++        mouse.accepted = x != 0
++        x = 0
++    }
++    onCanceled: x = 0
++
+     onOnDisplayChanged: {
+         if (onDisplay) {
+             if (desktop.animating) {
+@@ -248,7 +271,199 @@ MouseArea {
          }
      }
  
@@ -16,16 +46,14 @@ index f34b51b..2721e2a 100644
 +        id: musicControl
 +        anchors.bottom: ongoingCall.enabled ? ongoingCall.top : clock.top
 +        width: parent.width
-+        height: Theme.itemSizeLarge
-+        property var mprisControl
-+        property var mprisConfig
++        height: column.height
++        property QtObject mprisControl
++        property QtObject mprisConfig
++        property QtObject feedbackEffect
 +        property string mprisService: "org.mpris.MediaPlayer2.jolla-mediaplayer"
 +        property bool displayActive: true
-+        onDisplayActiveChanged: {
-+            if (mprisControl) {
-+                mprisControl.active = enabled && displayActive
-+            }
-+        }
++        property bool mprisActive: mprisControl && (displayActive || sneakPeekHint.sneakPeekActive)
++        onMprisActiveChanged: if (mprisControl) mprisControl.active = mprisActive
 +        enabled: lockscreenVisible
 +        visible: mprisControl ? mprisControl.active : false
 +        onEnabledChanged: {
@@ -36,12 +64,14 @@ index f34b51b..2721e2a 100644
 +                mediaName.setDefaultMarqueeOffset()
 +            }
 +        }
++        opacity: (lockScreen.width - Math.abs(lockScreen.x) * 8) / lockScreen.width
 +
 +        Component.onCompleted: {
-+            mprisConfig = Qt.createQmlObject('import QtQuick 2.0; import org.nemomobile.configuration 1.0; ConfigurationValue {key: "/desktop/lipstick-jolla-home/mprisService"; defaultValue: musicControl.mprisService}', musicControl)
-+            mprisService = mprisConfig.value
-+            mprisConfig.valueChanged.connect(function() { mprisService = mprisConfig.value; })
++            mprisConfig = Qt.createQmlObject('import QtQuick 2.0; import org.nemomobile.configuration 1.0; ConfigurationGroup {path: "/desktop/lipstick-jolla-home/mprisService"; property string serviceName: musicControl.mprisService; property bool useGestures: true; property bool showProgress: true}', musicControl)
++            mprisService = mprisConfig.serviceName
++            mprisConfig.serviceNameChanged.connect(function() { mprisService = mprisConfig.serviceName; })
 +            mprisControl = Qt.createQmlObject('import QtQuick 2.0; import org.coderus.mpris 2.0 as Mpris2; Mpris2.Control {service: musicControl.mprisService}', musicControl)
++            feedbackEffect = Qt.createQmlObject("import QtQuick 2.0; import QtFeedback 5.0; ThemeEffect { effect: ThemeEffect.Press }", musicControl);
 +        }
 +
 +        Column {
@@ -80,7 +110,12 @@ index f34b51b..2721e2a 100644
 +                    onTriggered: {
 +                        if (mediaName.width + mediaName.marqueeOffset > marqueeItem.width) {
 +                            mediaName.marqueeOffset += marqueeTimer.offset
-+                            interval = 10
++                            if (mediaName.width + mediaName.marqueeOffset <= marqueeItem.width) {
++                            	interval = 1000
++                            }
++                            else {
++	                            interval = 10
++	                        }
 +                        }
 +                        else {
 +                            mediaName.marqueeOffset = 0
@@ -90,8 +125,36 @@ index f34b51b..2721e2a 100644
 +                }
 +            }
 +
++            Item {
++                width: parent.width
++                height: Theme.itemSizeSmall
++                clip: true
++                visible: musicControl.mprisConfig.showProgress
++
++	            ProgressBar {
++	            	id: positionProgress
++	                width: parent.width
++	                anchors {
++	                	top: parent.top
++	                	topMargin: - Theme.paddingLarge
++	                }
++	                minimumValue: 0
++	                maximumValue: musicControl.mprisControl.metadata["mpris:length"] ? musicControl.mprisControl.metadata["mpris:length"] : 1000000
++	                value: musicControl.mprisControl.position
++	                valueText: Format.formatDuration(value / 1000000, Format.DurationShort)
++	            }
++
++	            Timer {
++	            	interval: 1000
++	            	running: musicControl.mprisControl.playbackStatus == "Playing" && musicControl.mprisControl.active
++	            	onTriggered: musicControl.mprisControl.initialize()
++	            }
++            }
++
 +            Row {
 +                height: Theme.itemSizeMedium
++                visible: musicControl.displayActive
++                enabled: !stupidTimer.running
 +                Item {
 +                    width: column.width / 3
 +                    height: parent.height
@@ -101,7 +164,9 @@ index f34b51b..2721e2a 100644
 +                        anchors.centerIn: parent
 +                        enabled: musicControl.mprisControl.canGoPrevious
 +                        onClicked: {
++                        	stupidTimer.start()
 +                            musicControl.mprisControl.previous()
++                            musicControl.feedbackEffect.play()
 +                        }
 +                    }
 +                }
@@ -115,6 +180,7 @@ index f34b51b..2721e2a 100644
 +                        enabled: musicControl.mprisControl.playbackStatus == "Playing" ? musicControl.mprisControl.canPause : musicControl.mprisControl.canPlay
 +                        onClicked: {
 +                            musicControl.mprisControl.playPause()
++                            musicControl.feedbackEffect.play()
 +                        }
 +                    }
 +                }
@@ -127,11 +193,43 @@ index f34b51b..2721e2a 100644
 +                        anchors.centerIn: parent
 +                        enabled: musicControl.mprisControl.canGoNext
 +                        onClicked: {
++                        	stupidTimer.start()
 +                            musicControl.mprisControl.next()
++                            musicControl.feedbackEffect.play()
 +                        }
 +                    }
 +                }
++                Timer {
++                	id: stupidTimer
++                	interval: 1000
++                	onTriggered: musicControl.mprisControl.initialize()
++                }
 +            }
++        }
++
++        Image {
++            id: leftActionIcon
++            property bool accepted: visible && x == (lockScreen.width / 2 - width / 2 - lockScreen.x)
++            source: "image://theme/icon-cover-next-song" + (accepted ? ("?" + Theme.highlightColor) : "")
++            visible: musicControl.mprisControl.canGoNext && musicControl.visible && lockScreen.x < 0
++            opacity: accepted ? 1.0 : (lockScreen.width - (x + lockScreen.x)) / (lockScreen.width / 2)
++            anchors.verticalCenter: musicControl.verticalCenter
++            property int calculatedX: lockScreen.width + lockScreen.currentX * 3 - lockScreen.x
++            x: calculatedX < (lockScreen.width / 2 - width / 2 - lockScreen.x) ? (lockScreen.width / 2 - width / 2 - lockScreen.x) : calculatedX
++            onAcceptedChanged: if (accepted) musicControl.feedbackEffect.play()
++        }
++
++        Image {
++            id: rightActionIcon
++            rotation: 180
++            property bool accepted: visible && x == (lockScreen.width / 2 - width / 2  - lockScreen.x)
++            source: "image://theme/icon-cover-next-song" + (accepted ? ("?" + Theme.highlightColor) : "")
++            visible: musicControl.mprisControl.canGoPrevious && musicControl.visible && lockScreen.x > 0
++            opacity: accepted ? 1.0 : (x + lockScreen.x) / (lockScreen.width / 2)
++            anchors.verticalCenter: musicControl.verticalCenter
++            property int calculatedX: lockScreen.currentX * 3 - width - lockScreen.x
++            x: calculatedX > (lockScreen.width / 2 - width / 2 - lockScreen.x) ? (lockScreen.width / 2 - width / 2 - lockScreen.x) : calculatedX
++            onAcceptedChanged: if (accepted) musicControl.feedbackEffect.play()
 +        }
 +    }
 +
@@ -140,7 +238,7 @@ index f34b51b..2721e2a 100644
          anchors.bottom: clock.top
      }
  
-@@ -263,8 +387,9 @@ MouseArea {
+@@ -263,8 +478,9 @@ MouseArea {
                  dashboard.cancelFlick()
                  dashboard.snapToPage(0, true)
              }
@@ -151,3 +249,25 @@ index f34b51b..2721e2a 100644
          onDisplayAboutToBeOn: {
              lockScreen.state = "showDateImmediately"
              sneakPeekHint.sneakPeekActive = lipstickSettings.lowPowerMode
+diff --git a/usr/share/lipstick-jolla-home-qt5/main.qml b/usr/share/lipstick-jolla-home-qt5/main.qml
+index 0d59e00..50a993e 100644
+--- a/usr/share/lipstick-jolla-home-qt5/main.qml
++++ b/usr/share/lipstick-jolla-home-qt5/main.qml
+@@ -459,7 +459,7 @@ ApplicationWindow {
+                 onPositionChanged: {
+                     if (Math.abs(mouseX - startX) > 3*Theme.startDragDistance) {
+                         preventStealing = true
+-                        if (!scrollHintAnimation.running) {
++                        if (!mouse.accepted && !scrollHintAnimation.running) {
+                             // While the screen is pressed, the animation will be
+                             // in the paused state, but that's okay, as we do not
+                             // want the content to "detach" from the finger while
+@@ -471,7 +471,7 @@ ApplicationWindow {
+ 
+                 onClicked: {
+                     // Only start if it's not already started (even if paused)
+-                    if (!scrollHintAnimation.running && !scrollHintAnimation.paused) {
++                    if (!mouse.accepted && !scrollHintAnimation.running && !scrollHintAnimation.paused) {
+                         scrollHintAnimation.start()
+                     }
+                 }

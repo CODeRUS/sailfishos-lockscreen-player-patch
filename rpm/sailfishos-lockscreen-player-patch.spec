@@ -10,8 +10,8 @@ BuildArch: armv7hl
 # << macros
 
 Summary:    Lockscreen player controls
-Version:    0.0.3
-Release:    1
+Version:    0.0.6
+Release:    3
 Group:      Qt/Qt
 License:    TODO
 Source0:    %{name}-%{version}.tar.bz2

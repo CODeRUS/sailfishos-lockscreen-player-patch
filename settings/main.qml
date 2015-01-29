@@ -8,11 +8,12 @@ Page {
     property var serviceList: ["org.mpris.MediaPlayer2.jolla-mediaplayer",
                                "org.mpris.MediaPlayer2.quasarmx",
                                "org.mpris.MediaPlayer2.sirensong",
-                               "org.mpris.MediaPlayer2.daedalus"]
+                               "org.mpris.MediaPlayer2.daedalus",
+                               "org.mpris.MediaPlayer2.CuteSpotify"]
 
     Component.onCompleted: {
         mediaCombo._updating = false
-        var index = serviceList.indexOf(mazeLockSettings.value)
+        var index = serviceList.indexOf(mazeLockSettings.serviceName)
         if (index >= 0) {
             mediaCombo.currentIndex = index
         }
@@ -21,10 +22,12 @@ Page {
         }
     }
 
-    ConfigurationValue {
+    ConfigurationGroup {
         id: mazeLockSettings
-        key: "/desktop/lipstick-jolla-home/mprisService"
-        defaultValue: "org.mpris.MediaPlayer2.jolla-mediaplayer"
+        path: "/desktop/lipstick-jolla-home/mprisService"
+        property string serviceName: "org.mpris.MediaPlayer2.jolla-mediaplayer"
+        property bool useGestures: true
+        property bool showProgress: true
     }
 
     SilicaFlickable {
@@ -50,22 +53,38 @@ Page {
                     MenuItem { text: "QuasarMX" }
                     MenuItem { text: "SirenSong" }
                     MenuItem { text: "Daedalus" }
+                    MenuItem { text: "CuteSpotify" }
                     MenuItem { text: "Custom" }
                 }
 
                 onCurrentIndexChanged: {
                     if (currentIndex < page.serviceList.length) {
-                        mazeLockSettings.value = page.serviceList[currentIndex]
+                        mazeLockSettings.serviceName = page.serviceList[currentIndex]
                     }
                 }
             }
 
             TextField {
                 width: parent.width
-                text: mazeLockSettings.value
+                text: mazeLockSettings.serviceName
                 visible: mediaCombo.currentIndex == page.serviceList.length
+                onVisibleChanged: if (visible) forceActiveFocus()
                 inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
-                onTextChanged: mazeLockSettings.value = text
+                onTextChanged: mazeLockSettings.serviceName = text
+            }
+
+            TextSwitch {
+                width: parent.width
+                text: "Use gestures to switch tracks"
+                checked: mazeLockSettings.useGestures
+                onClicked: mazeLockSettings.useGestures = checked
+            }
+
+            TextSwitch {
+                width: parent.width
+                text: "Show current position progress"
+                checked: mazeLockSettings.showProgress
+                onClicked: mazeLockSettings.showProgress = checked
             }
         }
     }
