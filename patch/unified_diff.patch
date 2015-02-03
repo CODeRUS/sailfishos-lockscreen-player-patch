@@ -1,11 +1,11 @@
-commit 3fbce5152183d9ba8574ede1d8344d570cfdcb69
+commit 74b7fefe5f4bfaf21e34a1570659b3a3445b8be8
 Author: CODeRUS <coderusinbox@gmail.com>
-Date:   Thu Jan 29 07:22:04 2015 +0500
+Date:   Fri Jan 30 04:51:50 2015 +0500
 
     v0.0.7
 
 diff --git a/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml b/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
-index f34b51b..47b2535 100644
+index f34b51b..f4cf752 100644
 --- a/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
 +++ b/usr/share/lipstick-jolla-home-qt5/lockscreen/Lockscreen.qml
 @@ -34,6 +34,29 @@ MouseArea {
@@ -38,7 +38,7 @@ index f34b51b..47b2535 100644
      onOnDisplayChanged: {
          if (onDisplay) {
              if (desktop.animating) {
-@@ -248,7 +271,199 @@ MouseArea {
+@@ -248,7 +271,220 @@ MouseArea {
          }
      }
  
@@ -52,10 +52,10 @@ index f34b51b..47b2535 100644
 +        property QtObject feedbackEffect
 +        property string mprisService: "org.mpris.MediaPlayer2.jolla-mediaplayer"
 +        property bool displayActive: true
-+        property bool mprisActive: mprisControl && (displayActive || sneakPeekHint.sneakPeekActive)
-+        onMprisActiveChanged: if (mprisControl) mprisControl.active = mprisActive
-+        enabled: lockscreenVisible
-+        visible: mprisControl ? mprisControl.active : false
++        property bool mprisActive: mprisControl && mprisControl.playbackStatus.length > 0
++
++        enabled: lockscreenVisible || lipstickSettings.lowPowerMode
++        visible: mprisControl ? mprisActive : false
 +        onEnabledChanged: {
 +            if (mprisControl) {
 +                mprisControl.active = enabled && displayActive
@@ -93,6 +93,7 @@ index f34b51b..47b2535 100644
 +                    property bool shouldMarquee: false
 +                    property int marqueeOffset: 0
 +                    text: musicControl.mprisControl.metadata["xesam:title"] ? (musicControl.mprisControl.metadata["xesam:artist"] + " - " + musicControl.mprisControl.metadata["xesam:title"]) : ""
++                    color: textColor
 +                    onTextChanged: setDefaultMarqueeOffset()
 +                    x: mediaName.marqueeOffset
 +                    function setDefaultMarqueeOffset() {
@@ -111,11 +112,11 @@ index f34b51b..47b2535 100644
 +                        if (mediaName.width + mediaName.marqueeOffset > marqueeItem.width) {
 +                            mediaName.marqueeOffset += marqueeTimer.offset
 +                            if (mediaName.width + mediaName.marqueeOffset <= marqueeItem.width) {
-+                            	interval = 1000
++                                interval = 1000
 +                            }
 +                            else {
-+	                            interval = 10
-+	                        }
++                                interval = 10
++                            }
 +                        }
 +                        else {
 +                            mediaName.marqueeOffset = 0
@@ -131,24 +132,44 @@ index f34b51b..47b2535 100644
 +                clip: true
 +                visible: musicControl.mprisConfig.showProgress
 +
-+	            ProgressBar {
-+	            	id: positionProgress
-+	                width: parent.width
-+	                anchors {
-+	                	top: parent.top
-+	                	topMargin: - Theme.paddingLarge
-+	                }
-+	                minimumValue: 0
-+	                maximumValue: musicControl.mprisControl.metadata["mpris:length"] ? musicControl.mprisControl.metadata["mpris:length"] : 1000000
-+	                value: musicControl.mprisControl.position
-+	                valueText: Format.formatDuration(value / 1000000, Format.DurationShort)
-+	            }
++                ProgressBar {
++                    id: positionProgress
++                    width: parent.width
++                    anchors {
++                        top: parent.top
++                        topMargin: - Theme.paddingLarge
++                    }
++                    minimumValue: 0
++                    property int duration: musicControl.mprisControl.metadata["xesam:mediaDuration"] ? musicControl.mprisControl.metadata["xesam:mediaDuration"] : 1000000
++                    property int length: musicControl.mprisControl.metadata["mpris:length"] ? musicControl.mprisControl.metadata["mpris:length"] : 1000000
++                    maximumValue: Math.max(duration, length)
++                    value: musicControl.mprisControl.position
++                    valueText: Format.formatDuration(value / 1000000, Format.DurationShort)
++                    property color color: Theme.highlightColor
++                    layer.effect: ShaderEffect {
++                        id: shaderItem
++                        property color color: positionProgress.color
 +
-+	            Timer {
-+	            	interval: 1000
-+	            	running: musicControl.mprisControl.playbackStatus == "Playing" && musicControl.mprisControl.active
-+	            	onTriggered: musicControl.mprisControl.initialize()
-+	            }
++                        fragmentShader: "
++                            varying mediump vec2 qt_TexCoord0;
++                            uniform highp float qt_Opacity;
++                            uniform lowp sampler2D source;
++                            uniform highp vec4 color;
++                            void main() {
++                                highp vec4 pixelColor = texture2D(source, qt_TexCoord0);
++                                gl_FragColor = vec4(mix(pixelColor.rgb/max(pixelColor.a, 0.00390625), color.rgb/max(color.a, 0.00390625), color.a) * pixelColor.a, pixelColor.a) * qt_Opacity;
++                            }
++                        "
++                    }
++                    layer.enabled: lipstickSettings.lowPowerMode
++                    layer.samplerName: "source"
++                }
++
++                Timer {
++                    interval: 1000
++                    running: musicControl.mprisControl.playbackStatus == "Playing" && musicControl.mprisControl.active
++                    onTriggered: musicControl.mprisControl.initialize()
++                }
 +            }
 +
 +            Row {
@@ -164,7 +185,7 @@ index f34b51b..47b2535 100644
 +                        anchors.centerIn: parent
 +                        enabled: musicControl.mprisControl.canGoPrevious
 +                        onClicked: {
-+                        	stupidTimer.start()
++                            stupidTimer.start()
 +                            musicControl.mprisControl.previous()
 +                            musicControl.feedbackEffect.play()
 +                        }
@@ -193,16 +214,16 @@ index f34b51b..47b2535 100644
 +                        anchors.centerIn: parent
 +                        enabled: musicControl.mprisControl.canGoNext
 +                        onClicked: {
-+                        	stupidTimer.start()
++                            stupidTimer.start()
 +                            musicControl.mprisControl.next()
 +                            musicControl.feedbackEffect.play()
 +                        }
 +                    }
 +                }
 +                Timer {
-+                	id: stupidTimer
-+                	interval: 1000
-+                	onTriggered: musicControl.mprisControl.initialize()
++                    id: stupidTimer
++                    interval: 1000
++                    onTriggered: musicControl.mprisControl.initialize()
 +                }
 +            }
 +        }
@@ -238,7 +259,7 @@ index f34b51b..47b2535 100644
          anchors.bottom: clock.top
      }
  
-@@ -263,8 +478,9 @@ MouseArea {
+@@ -263,8 +499,9 @@ MouseArea {
                  dashboard.cancelFlick()
                  dashboard.snapToPage(0, true)
              }
