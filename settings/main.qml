@@ -9,6 +9,7 @@ Page {
                                "org.mpris.MediaPlayer2.quasarmx",
                                "org.mpris.MediaPlayer2.sirensong",
                                "org.mpris.MediaPlayer2.daedalus",
+                               "org.mpris.MediaPlayer2.CuteSpot",
                                "org.mpris.MediaPlayer2.CuteSpotify"]
 
     Component.onCompleted: {
@@ -53,6 +54,7 @@ Page {
                     MenuItem { text: "QuasarMX" }
                     MenuItem { text: "SirenSong" }
                     MenuItem { text: "Daedalus" }
+                    MenuItem { text: "CuteSpot" }
                     MenuItem { text: "CuteSpotify" }
                     MenuItem { text: "Custom" }
                 }
